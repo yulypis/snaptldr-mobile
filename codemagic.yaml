@@ -1,44 +1,25 @@
 workflows:
   react-native-android:
     name: React Native Android
-    max_build_duration: 120
-    instance_type: mac_mini_m1
-    integrations:
-      app_store_connect: codemagic
+    max_build_duration: 60
+    instance_type: linux_x2
     environment:
-      android_signing:
-        - keystore_reference
-      groups:
-        - google_play # <-- (Includes GCLOUD_SERVICE_ACCOUNT_CREDENTIALS)
       vars:
         PACKAGE_NAME: "com.yuly.snaptldr"
-        GOOGLE_PLAY_TRACK: internal
-      node: 16.20.2
-      xcode: latest
-      cocoapods: default
+      node: 18
+      java: 11
     scripts:
       - name: Install npm dependencies
         script: |
           npm install
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios && pod install
       - name: Set Android SDK location
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
-      - name: Build Android APK
+      - name: Build debug APK (no signing required)
         script: |
-          LATEST_GOOGLE_PLAY_BUILD_NUMBER=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME")
-          if [ -z $LATEST_GOOGLE_PLAY_BUILD_NUMBER ]; then
-              # fallback in case no build number was found from google play
-              UPDATED_BUILD_NUMBER=$BUILD_NUMBER
-          else
-              UPDATED_BUILD_NUMBER=$(($LATEST_GOOGLE_PLAY_BUILD_NUMBER + 1))
-          fi
           cd android
-          ./gradlew bundleRelease \
-              -PversionCode=$UPDATED_BUILD_NUMBER \
-              -PversionName=1.0.$UPDATED_BUILD_NUMBER
+          chmod +x gradlew
+          ./gradlew assembleDebug
     artifacts:
       - android/app/build/outputs/**/*.apk
       - android/app/build/outputs/**/*.aab
@@ -51,7 +32,3 @@ workflows:
         notify:
           success: true
           failure: false
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: $GOOGLE_PLAY_TRACK
-        submit_as_draft: true
